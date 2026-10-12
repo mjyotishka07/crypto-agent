@@ -1,0 +1,45 @@
+name: Daily crypto report
+
+on:
+  # Runs every day at 08:00 India time (02:30 UTC)
+  schedule:
+    - cron: "30 2 * * *"
+  # Lets you run it yourself any time from the "Actions" tab (the "when asked" button)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install libraries
+        run: pip install -r requirements.txt
+
+      - name: Build the report
+        env:
+          # Both are optional. Leave the secrets empty and it still works.
+          COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python analyze.py
+
+      - name: Save the report back to your repository
+        run: |
+          git config user.name "crypto-agent-bot"
+          git config user.email "crypto-agent-bot@users.noreply.github.com"
+          mkdir -p archive
+          cp REPORT.md "archive/report-$(date -u +%Y-%m-%d).md"
+          git add REPORT.md archive ranking.csv meta.json
+          git diff --cached --quiet || git commit -m "Daily crypto report $(date -u +%Y-%m-%d)"
+          git push
